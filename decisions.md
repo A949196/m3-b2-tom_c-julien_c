@@ -1,37 +1,23 @@
-# Decisions — Binôme `<prénom1>` × `<prénom2>` (M3-B2 Acerox)
-
-> Document à compléter à 2 pendant la phase sync (15 min avant de coder).
-> Servira de référence pendant la phase async + RDV vendredi.
+# Decisions — Binôme `Tom` × `Julien` (M3-B2 Acerox)
 
 ## 1. Source choisie pour l'ingestion
 
-> Quelle source intégrez-vous en M3-B2 ? Argumentez en 3 lignes max.
-
-**Choix** : ☐ `capteurs_iot.csv` (CSV ~51k lignes) ☐ `erp_export.json` (JSON ~2k ordres)
+**Choix** : `erp_export.json` (JSON ~2k ordres)
 
 **Argument** :
-- ...
-- ...
-- ...
+- `produit_ref` dans l'ERP correspond exactement aux références de `produits.csv` (ex : `ALU-T1-22`) : c'est la seule des deux sources qui permet une vraie FK vers le schéma existant.
+- L'ERP contient une donnée à caractère personnel (`ouvrier_id`), ce qui nous confronte à un vrai enjeu RGPD.
 
-## 2. Stratégie de gestion des doublons
+## 2. Stratégie de gestion des doublons 
 
-> Comment gérez-vous les doublons à l'ingestion ? `INSERT OR IGNORE` SQL,
-> upsert applicatif, dédup pandas avant insertion ?
-
-**Choix** : ...
-
-**Argument** : ...
+**Choix** : dédup pandas avant insertion, sur la clé naturelle `ordre_id` (unique par construction dans l'ERP), puis vérification en base des `ordre_id` déjà présents avant `INSERT` (même logique idempotente que `ingest_produits()` dans `pipeline_existante.py`).
+ 
+**Argument** : `ordre_id` est un identifiant métier unique (contrairement à `sensor_id` + `timestamp` côté IoT, qui n'a pas de clé naturelle aussi nette). Filtrer côté pandas avant d'aller en base évite des allers-retours SQL inutiles sur un volume de ~2k lignes ; on garde la vérification "refs déjà en base" pour garantir l'idempotence même si le script est relancé plusieurs fois (critère de performance 3).
 
 ## 3. Stratégie RGPD (si vous prenez ERP)
-
-> Si vous prenez ERP : que faites-vous de `ouvrier_id` ?
-
-- ☐ Suppression pure
 - ☐ Hash salé (avec quel sel ?)
-- ☐ Conservation pseudonymisée (justifier)
 
-**Argument** : ...
+**Argument** : `ouvrier_id` est haché (SHA-256) avec un sel fixe stocké en variable d'environnement (`ACEROX_HASH_SALT`), plutôt que supprimé purement. On choisit le hash salé plutôt que la suppression pure car `ouvrier_id` peut avoir une valeur analytique pour le modèle de prédiction de défauts en aval, le supprimer ferait perdre un signal potentiellement utile, alors que le hasher le rend non ré-identifiable directement tout en restant un identifiant stable et joignable. Le sel évite les attaques par dictionnaire.
 
 ## 4. Stratégie de tests
 
@@ -43,9 +29,9 @@
 
 ## 5. Convention binôme
 
-- Driver / Navigator switch toutes les **30 min** : ☐ oui ☐ adapté à...
-- Tous les commits significatifs ont `Co-authored-by:` : ☐ oui ☐ ...
-- Branche perso ou main partagée : ...
+- Driver / Navigator switch toutes les **30 min** : oui
+- Tous les commits significatifs ont `Co-authored-by:` : 
+- Branche perso ou main partagée : main partagée
 
 ## 6. Conformité au contrat de données
 
@@ -63,4 +49,4 @@
 
 ---
 
-*Décisions tracées par le binôme `<prénom1>` × `<prénom2>` — `<date>`.*
+*Décisions tracées par le binôme `Tom` × `Julien` — `01/07/2026`.*
