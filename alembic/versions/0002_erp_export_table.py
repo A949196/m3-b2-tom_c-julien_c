@@ -1,8 +1,8 @@
-"""add <erp_export> table
+"""add erp_export table
 
 Revision ID: 0002
 Revises: 0001
-Create Date: 2026-07-01 11:08:31.434549
+Create Date: 2026-07-01 11:37:33.860773
 
 """
 from typing import Sequence, Union

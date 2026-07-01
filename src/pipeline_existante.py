@@ -23,7 +23,7 @@ import os
 PRODUITS_CSV: Path = Path(__file__).parent.parent / "data" / "produits.csv"
 ERP_EXPORT_JSON: Path = Path(__file__).parent.parent / "data" / "erp_export.json"
 
-SALT = os.environ.get("OUVRIER_SALT", "default_salt_change_me")
+SALT = os.environ.get("OUVRIER_SALT")
 
 def init_db() -> None:
     """Crée toutes les tables déclarées dans `models.Base.metadata`.
@@ -73,8 +73,6 @@ def ingest_erp_export() -> int:
     # Normalisation des dates 
     df["date_lancement"] = pd.to_datetime(df["date_lancement"])
     df["date_fin_prevue"] = pd.to_datetime(df["date_fin_prevue"])
-    
-    #WARNING hash salé ouvrier_id
 
     session = get_session()
     inserted = 0

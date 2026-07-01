@@ -29,21 +29,7 @@ class Produit(Base):
         return f"Produit(ref={self.produit_ref!r}, nom={self.nom!r})"
 
 
-# ----------------------------------------------------------------------------
-# TODO BINÔME — Ajoutez votre nouvelle table ici
-# ----------------------------------------------------------------------------
-#
-# ⚠️ Votre table utilisera des types non encore importés en haut de ce
-#    fichier (DateTime, Float, ForeignKey, UniqueConstraint…). Ajoutez aux
-#    imports sqlalchemy ce dont vous avez besoin, sinon → NameError.
-#
-#  Ajoutez ici le modèle correspondant au contrat de données.
-#
-#  Consultez :
-#
-#  ressources/contrat_donnees_modele.md
-#
-#  Vérifiez notamment :
+# Contraintes :
 #
 #  - types
 #  - contraintes
