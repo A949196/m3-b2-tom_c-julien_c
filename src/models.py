@@ -8,7 +8,7 @@ TODO binôme : ajouter ICI le modèle de votre nouvelle table
 """
 from __future__ import annotations
 
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
@@ -51,3 +51,21 @@ class Produit(Base):
 #  - clés étrangères
 #  - contraintes d'unicité
 #
+class ErpExport(Base):
+    """Export des données ERP Acerox"""
+
+    __tablename__ = "erp_export"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ordre_id = Column(Integer, unique=True, nullable=False, index=True)
+    produit_ref = Column(String(20), ForeignKey("produits.produit_ref"), nullable=False)
+    site = Column(String(50), nullable=False)
+    line_id = Column(Integer, nullable=False)
+    date_lancement = Column(DateTime, nullable=False)
+    date_fin_prevue = Column(DateTime, nullable=False)
+    statut = Column(String(20), nullable=False)  # "suspendu", "termine", "en_cours"
+    ouvrier_id = Column(String(20), nullable=False)
+    quantite_kg = Column(Float, nullable=False)
+
+    def __repr__(self) -> str:
+        return f"ErpExport(ordre_id={self.ordre_id!r}, produit_ref={self.produit_ref!r}, statut={self.statut!r})"
