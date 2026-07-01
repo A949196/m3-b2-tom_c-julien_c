@@ -8,6 +8,14 @@
 - `produit_ref` dans l'ERP correspond exactement aux références de `produits.csv` (ex : `ALU-T1-22`) : c'est la seule des deux sources qui permet une vraie FK vers le schéma existant.
 - L'ERP contient une donnée à caractère personnel (`ouvrier_id`), ce qui nous confronte à un vrai enjeu RGPD.
 
+## 1.1 Format de stockage choisi
+
+**Choix** : SQLite
+
+**Argument** : 
+- Une vraie relation entre `produits` (FK sur `produit_ref`)
+- Un volume modeste (2000 identifiants)
+
 ## 2. Stratégie de gestion des doublons 
 
 **Choix** : dédup pandas avant insertion, sur la clé naturelle `ordre_id` (unique par construction dans l'ERP), puis vérification en base des `ordre_id` déjà présents avant `INSERT` (même logique idempotente que `ingest_produits()` dans `pipeline_existante.py`).
