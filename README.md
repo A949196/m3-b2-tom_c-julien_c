@@ -1,144 +1,80 @@
 # M3-B2 — Squelette repo (pipeline + migration Acerox)
 
-> **Repo template GitHub.** Le binôme désigné par la formatrice à 9h
-> mercredi crée son repo perso depuis ce template (« Use this template »)
-> et invite l'autre comme collaborateur.
-
+## Architecture
+ 
+```mermaid
+flowchart TD
+    CSV[/"produits.csv"/]
+    JSON[/"erp_export.json"/]
+ 
+    CSV --> N1["ingest_produits()\nexistant, ne pas modifier"]
+    JSON --> N2["ingest_erp_export()\ntypage · dédup · hash RGPD"]
+ 
+    N1 --> T1[("produits")]
+    N2 --> T2[("erp_export")]
+ 
+    T2 -.->|"FK produit_ref"| T1
+ 
+    T1 --> ML{{"Modèle de prédiction\nde défauts (aval)"}}
+    T2 --> ML
+ 
+    classDef source fill:#fef6e4,stroke:#c9911d,color:#5c4200
+    classDef script fill:#e8f4ea,stroke:#2f7a3d,color:#1c4423
+    classDef table fill:#e8eefc,stroke:#3457a6,color:#1b2e5c
+    classDef aval fill:#f4e8fc,stroke:#7a3fa6,color:#3d1c5c
+ 
+    class CSV,JSON source
+    class N1,N2 script
+    class T1,T2 table
+    class ML aval
+```
+ 
+**Points clés du schéma :**
+- `erp_export.produit_ref` est une vraie clé étrangère vers `produits.produit_ref` (flèche pointillée, cf. `decisions.md` section 1).
+- `ouvrier_id` n'est jamais stocké en clair : seule la colonne `ouvrier_id_hash` (SHA-256 salé) existe en base, nullable (cf. `decisions.md` section 3).
+- La BDD alimente en aval le modèle de prédiction de défauts déjà en production — hors périmètre de ce brief.
 ---
 
-## 🚀 Démarrage (5 commandes)
+## Reproduire la livraison (3 commandes)
 
+Pré-requis : environnement déjà cloné et dépendances installées (cf.
+`pip install -r requirements.txt`), et un fichier `.env` créé à la racine
+avec `OUVRIER_SALT` défini (voir `.env.example` — génération :
+`python3 -c "import secrets; print(secrets.token_hex(32))"`).
+ 
 ```bash
-# 0. Clone votre repo binôme
-git clone git@github.com:<owner>/M3-B2-acerox-<binome>.git
-cd M3-B2-acerox-<binome>
-
-# 1. Environnement virtuel
-python -m venv .venv && source .venv/bin/activate
-
-# 2. Dépendances
-pip install -r requirements.txt
-
-# 3. Init BDD (pipeline existante)
+# 1. Applique toutes les migrations (produits + erp_export + correctif RGPD)
 alembic upgrade head
+ 
+# 2. Bootstrap + ingestion des deux sources (idempotent, relancer ne duplique pas)
 python -m src.pipeline_existante
-
-# 4. Vérification tests initiaux verts
+ 
+# 3. Vérifie que tout est vert
 pytest -v
 ```
-
-Si ces 5 commandes marchent, votre poste est prêt. **La pipeline
-existante doit tourner avant que vous y touchiez.**
-
-> 📦 Les 2 sources `capteurs_iot.csv` et `erp_export.json` (issues de
-> M3-B1) sont **versionnées dans ce template** — vous en avez besoin
-> pour coder l'ingestion. La BDD produite (`data/acerox.db`) reste, elle,
-> hors commit (`.gitignore`).
-
+ 
+Ces trois commandes recréent `data/acerox.db` avec le schéma complet et
+les données des deux sources, à partir d'un poste propre.
 ---
 
-## 📁 Structure du repo
-
+## Rollback
+ 
+Pour annuler la dernière migration appliquée :
+ 
+```bash
+alembic downgrade -1
 ```
-M3-B2-acerox-<binome>/
-├── data/
-│   ├── produits.csv                  # référentiel initial (committé)
-│   ├── capteurs_iot.csv              # fourni mercredi (gitignored)
-│   ├── erp_export.json               # fourni mercredi (gitignored)
-│   └── acerox.db                     # BDD locale (gitignored)
-├── src/
-│   ├── __init__.py
-│   ├── db.py                         # engine + session SQLAlchemy
-│   ├── models.py                     # Produit + TODO votre table
-│   ├── pipeline_existante.py         # ne pas modifier
-│   └── ingest_<source>.py            # à créer (votre code)
-├── alembic/
-│   ├── env.py
-│   ├── script.py.mako
-│   └── versions/
-│       └── 0001_initial_schema.py    # table produits — fourni
-│       # 0002_add_<table>.py         # votre migration à créer
-├── tests/
-│   ├── __init__.py
-│   ├── conftest.py                   # fixtures BDD éphémère
-│   ├── test_pipeline_initial.py      # DOIT rester vert
-│   ├── test_ingest.py                # à créer
-│   └── test_migration.py             # à créer
-├── ressources/                       # 📚 5 mini-cours d'appui
-│   ├── README.md
-│   ├── 01_SQLAlchemy_ORM_essentiel.md
-│   ├── 02_Alembic_migration_essentiel.md
-│   ├── 03_Ingestion_idempotente_essentiel.md
-│   ├── 04_Tests_pipeline_essentiel.md
-│   ├── 05_Pair_coding_git_essentiel.md
-│   └── liens_officiels.md
-├── decisions.md                      # template binôme — vos choix tracés
-├── alembic.ini
-├── requirements.txt
-├── .gitignore
-└── README.md (ce fichier — à compléter avec schéma Mermaid + démarrage)
-```
-
----
-
-## 📚 Mini-cours d'appui
-
-Cf. [`./ressources/`](./ressources/) — 5 mini-cours, lecture juste-à-temps.
-
-| Tâche | Mini-cours |
+ 
+Historique des migrations de ce repo :
+ 
+| Révision | Contenu |
 |---|---|
-| Modèles SQLAlchemy | [`01_SQLAlchemy_ORM_essentiel.md`](./ressources/01_SQLAlchemy_ORM_essentiel.md) |
-| Migration Alembic | [`02_Alembic_migration_essentiel.md`](./ressources/02_Alembic_migration_essentiel.md) |
-| Ingestion idempotente | [`03_Ingestion_idempotente_essentiel.md`](./ressources/03_Ingestion_idempotente_essentiel.md) |
-| Tests pipeline | [`04_Tests_pipeline_essentiel.md`](./ressources/04_Tests_pipeline_essentiel.md) |
-| Pair-coding Git binôme | [`05_Pair_coding_git_essentiel.md`](./ressources/05_Pair_coding_git_essentiel.md) |
-
-### 📄 Documents fournis par Acerox (lecture seule, avant de coder)
-
-| Document | Rôle |
-|---|---|
-| [`fiche_modele_acerox.md`](./ressources/fiche_modele_acerox.md) | À *qui* vous livrez : le modèle de prédiction NC déjà en production |
-| [`contrat_donnees_modele.md`](./ressources/contrat_donnees_modele.md) | La **table cible** + clauses de qualité que votre pipeline doit honorer |
-
----
-
-## 🧭 Démarche attendue
-
-### Mercredi sync (2 h)
-
-1. **Setup binôme + appropriation squelette** (30 min)
-2. **Choix de la source** dans `decisions.md` — *et pourquoi pas l'autre* ;
-   réflexe stockage appuyé sur la **grille « Stockage & échelle »**
-   (cf. [`ressources/liens_officiels.md`](./ressources/liens_officiels.md)) (15 min)
-3. **Normalisation + ingestion** premier jet (45 min)
-4. **Tour de table** 11h30 — démo + discussion versionning (30 min)
-
-### Async jeudi/vendredi matin (3 h binôme)
-
-5. **Migration Alembic** (1 h)
-6. **Tests pytest** (45 min)
-7. **README + Mermaid + tag v0.1.0-pipeline-m3** (1 h)
-8. **Finition + RDV vendredi** (15 min)
-
-→ Compétences visées : **C1 — imiter** renforcé + **C3 — transposer** (palier final).
-
----
-
-## ✅ Conventions de code
-
-- Python 3.11+
-- Type hints sur signatures publiques
-- Pas de `print` (utiliser `logging` si besoin)
-- `pathlib.Path` pour les chemins
-- Tous les commits binôme : `Co-authored-by: <prénom> <email>`
-
----
-
-## 🆘 Bloqué·e·s ?
-
-1. Relisez le mini-cours de votre tâche actuelle.
-2. **Si Alembic bug** : `alembic upgrade head` doit toujours marcher. Si
-   non, supprime `data/acerox.db` et relance — la BDD se reconstruit.
-3. **Si pytest casse** : commencez par vérifier que `test_pipeline_initial.py`
-   reste vert. Si oui, votre régression est localisée — relisez vos diff.
-4. Demandez sur Discord (`fil-M3-B2`). 30 min sur un bloquant = MP voix.
+| `0001` | Création de `produits` (fournie, ne pas modifier) |
+| `0002` | Création de `erp_export` |
+| `ecd3aa95da63` | Correctif : `ouvrier_id` → `ouvrier_id_hash`, `nullable=True` |
+ 
+**Quand un rollback est nécessaire** :
+ 
+- **Migration bug détectée après coup** — plutôt que de modifier `0002` directement, on a ajouté une migration corrective (`ecd3aa95da63`) — c'est la bonne pratique une fois un migration déjà poussée : on ne réécrit pas l'historique partagé, on corrige.
+- **Déploiement à annuler** : une fonctionnalité migrée doit être retirée ou reportée — le schéma doit redevenir cohérent avec le code réellement déployé.
+- **Ce que le rollback ne couvre pas** : il annule le *schéma*, pas les données déjà présentes dans les colonnes supprimées par un `downgrade()`. La migration `ecd3aa95da63` utilise `batch_alter_table` (renommage réel) plutôt que `drop_column`/`add_column`, précisément pour ne pas perdre les valeurs déjà en base pendant l'aller-retour — testé explicitement avant livraison.

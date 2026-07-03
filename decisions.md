@@ -29,32 +29,28 @@
 
 ## 4. Stratégie de tests
 
-> Quels 3 tests minimum allez-vous écrire ?
+1. **Migration appliquée → la table existe** : applique les migrations (`alembic upgrade head`) sur une BDD SQLite éphémère, puis vérifie que `erp_export` est présente, avec les colonnes attendues (notamment `ouvrier_id_hash`).
 
-1. Migration appliquée → la table existe : ...
-2. Ingestion d'un fichier valide → N lignes insérées sans doublon : ...
-3. Ingestion fichier malformé → exception claire, BDD inchangée : ...
+2. **Ingestion d'un fichier valide → N lignes insérées sans doublon** : appelle `ingest_erp()` sur un `erp_export.json` de test contenant des `ordre_id` uniques, vérifie que le nombre de lignes retourné correspond au nombre de lignes du fichier, puis relance `ingest_erp()` une seconde fois et vérifie que 0 ligne est insérée.
+
+3. **Ingestion fichier malformé → exception claire, BDD inchangée** : appelle `ingest_erp()` sur un fichier avec une colonne obligatoire manquante ou un type invalide (ex. `quantite_kg` non numérique), vérifie qu'une `IngestionError` explicite est levée.
+
 
 ## 5. Convention binôme
 
 - Driver / Navigator switch toutes les **30 min** : oui
-- Tous les commits significatifs ont `Co-authored-by:` : 
+- Tous les commits significatifs ont `Co-authored-by:` : oui
 - Branche perso ou main partagée : main partagée
 
 ## 6. Conformité au contrat de données
 
-> Confrontez votre livraison à `ressources/contrat_donnees_modele.md`. Pour
-> chaque clause de qualité **honorée** : laquelle, comment, et **où** dans le
-> code. (Documenté ici — c'est ce que vous montrez au RDV vendredi.)
-
 | Clause du contrat | Honorée ? | Comment / où dans le code |
 |---|---|---|
-| Unicité respectée (ingestion idempotente) | ☐ | ... |
-| Manquants traités explicitement | ☐ | ... |
-| Capteur défaillant Roubaix L3 : repéré + décision tracée (écarter / marquer / aval) *(option A)* | ☐ / s.o. | ... |
-| `ouvrier_id` hashé ou retiré, jamais en clair *(option B)* | ☐ / s.o. | ... |
-| Types conformes (DateTime, numériques typés) | ☐ | ... |
-
+| Unicité respectée (ingestion idempotente) | ☒ | Index unique sur `ordre_id` (migration `0002`) ; filtre `existing_refs` avant insertion dans `ingest_erp()` et `ingest_erp_export()`. Vérifié : relancer le script 2 fois insère 0 ligne au second passage. |
+| Manquants traités explicitement | Partielle | `ouvrier_id` absent → `ouvrier_id_hash = NULL` (colonne `nullable=True`, migration `ecd3aa95da63`), implémenté dans `src/ingest_erp.py::_hash_ouvrier_id()`. |
+| Capteur défaillant Roubaix L3 : repéré + décision tracée (écarter / marquer / aval) *(option A)* | s.o. | Non applicable — source IoT non retenue pour cette itération (cf. section 1). |
+| `ouvrier_id` hashé ou retiré, jamais en clair *(option B)* | ☒ | Hash SHA-256 salé, sel lu depuis `OUVRIER_SALT` (fichier `.env`). Colonne renommée `ouvrier_id_hash` (migration corrective `ecd3aa95da63`) pour que le nom documente lui-même son contenu. |
+| Types conformes (DateTime, numériques typés) | ☒ | `models.py` — `date_lancement`/`date_fin_prevue` en `DateTime`, `quantite_kg` en `Float`, `ordre_id`/`line_id` en `Integer`, `produit_ref` en `String(20)` (FK), `ouvrier_id_hash` en `String(64)`. Contraintes reflétées dans les migrations `0002` et `ecd3aa95da63`. |
 ---
 
 *Décisions tracées par le binôme `Tom` × `Julien` — `01/07/2026`.*
