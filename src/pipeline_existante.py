@@ -90,7 +90,7 @@ def ingest_erp_export() -> int:
                     date_lancement=row["date_lancement"],
                     date_fin_prevue=row["date_fin_prevue"],
                     statut=row["statut"],
-                    ouvrier_id=hash_ouvrier_id(row["ouvrier_id"]),
+                    ouvrier_id_hash=hash_ouvrier_id(row["ouvrier_id"], SALT),
                     quantite_kg=row["quantite_kg"],
                 )
             )
@@ -101,10 +101,10 @@ def ingest_erp_export() -> int:
     return inserted
 
 # Hashage salé de l'identifiant ouvrier pour anonymisation
-def hash_ouvrier_id(ouvrier_id: str) -> str:
+def hash_ouvrier_id(ouvrier_id: str, salt: str) -> str:
     if pd.isna(ouvrier_id):
         ouvrier_id = "unknown"
-    salted = (SALT + str(ouvrier_id)).encode()
+    salted = (salt + str(ouvrier_id)).encode()
     return hashlib.sha256(salted).hexdigest()
 
 def main() -> None:
