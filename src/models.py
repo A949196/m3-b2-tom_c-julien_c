@@ -25,7 +25,7 @@ class Produit(Base):
     categorie = Column(String(20), nullable=False)  # "aluminium" / "inox"
     unite = Column(String(10), nullable=False, default="kg")
 
-    def __repr__(self) -> str:
+    def __xrepr__(self) -> str:
         return f"Produit(ref={self.produit_ref!r}, nom={self.nom!r})"
 
 
@@ -50,7 +50,7 @@ class ErpExport(Base):
     date_lancement = Column(DateTime, nullable=False)
     date_fin_prevue = Column(DateTime, nullable=False)
     statut = Column(String(20), nullable=False)  # "suspendu", "termine", "en_cours"
-    ouvrier_id = Column(String(64), nullable=False)
+    ouvrier_id_hash = Column(String(64), nullable=False)
     quantite_kg = Column(Float, nullable=False)
 
     def __repr__(self) -> str:
